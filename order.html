@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تأكيد الطلب - MR beauty</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Anti-flash inline theme and language loader -->
+    <script>
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('mrbeauty_theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                var savedLang = localStorage.getItem('storeLang') || 'ar';
+                document.documentElement.setAttribute('lang', savedLang);
+                document.documentElement.setAttribute('dir', savedLang === 'ar' ? 'rtl' : 'ltr');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js"
+            }
+        }
+    </script>
+
+    <script src="config.js"></script>
+    <script type="module" src="app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="container header-container">
+            <a href="index.html" class="nav-brand">
+                <img src="assets/logo-icon.png" alt="MR beauty" class="store-logo" data-store-logo width="40" height="40">
+                <span class="store-name" data-store-name>MR beauty</span>
+            </a>
+
+            <!-- Header Actions -->
+            <div class="header-actions">
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Theme" title="تغيير المظهر">
+                    <svg class="theme-icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+
+                <!-- Wishlist Quick Link -->
+                <a href="index.html#catalog" id="header-wishlist-btn" class="wishlist-header-btn" title="المفضلة" aria-label="Wishlist">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <span id="wishlist-badge-count" class="wishlist-badge">0</span>
+                </a>
+
+                <!-- Mobile Hamburger Button -->
+                <button id="menu-toggle-btn" class="menu-toggle-btn" type="button" aria-label="Menu" aria-expanded="false" title="القائمة">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+
+                <!-- Navigation Panel -->
+                <nav id="main-nav" class="nav-drawer" aria-label="Main Navigation">
+                    <div class="drawer-header">
+                        <span class="drawer-brand" data-store-name>MR beauty</span>
+                        <button id="drawer-close-btn" class="drawer-close-btn" type="button" aria-label="Close menu">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+
+                    <div class="nav-menu">
+                        <a href="index.html" class="nav-item-link" data-i18n="backToHome">الرئيسية</a>
+                        <a href="about.html" class="nav-item-link" data-i18n="aboutUs">من نحن</a>
+                        <a href="admin-dashboard.html" id="admin-link" class="nav-item-link admin-nav-link hidden" data-i18n="adminDashboard">لوحة التحكم</a>
+                    </div>
+
+                    <div class="nav-controls">
+                        <button id="language-switcher" class="btn btn-secondary language-btn" type="button">
+                            <span data-i18n="currentLang">العربية</span>
+                        </button>
+
+                        <a href="login.html" id="login-btn" class="btn btn-primary login-btn hidden" data-i18n="loginButton">
+                            تسجيل الدخول
+                        </a>
+
+                        <button id="logout-btn" class="btn btn-danger logout-btn hidden" type="button" data-i18n="logout">
+                            تسجيل الخروج
+                        </button>
+                    </div>
+
+                    <div class="drawer-footer">
+                        <div class="drawer-social-links" id="drawer-socials"></div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <div id="nav-backdrop" class="nav-backdrop"></div>
+
+    <main class="container main-content order-container">
+        
+        <h1 class="section-title" data-i18n="orderTitle">طلب منتج</h1>
+        
+        <div id="order-loading" class="loading-container">
+            <div class="spinner"></div>
+            <p data-i18n="loadingBook" style="margin-inline-start: 12px; margin-bottom: 0;">جاري تحميل تفاصيل المنتج...</p>
+        </div>
+
+        <div id="order-error" class="empty-state hidden">
+            <p data-i18n="bookNotFound">المنتج غير موجود.</p>
+            <a href="index.html" class="btn btn-primary" data-i18n="backToHome">العودة للرئيسية</a>
+        </div>
+
+        <div id="order-book-details" class="order-product-card hidden">
+            <img id="preview-cover" src="" alt="Product image" class="order-product-cover" loading="lazy" decoding="async">
+            <div class="order-product-info">
+                <h3 id="preview-title"></h3>
+                <p id="preview-author" class="author-text" style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 4px;"></p>
+                <p id="preview-price" class="price" style="font-weight: 700; color: var(--accent);"></p>
+            </div>
+        </div>
+
+        <form id="order-form" class="order-form hidden">
+            <div class="form-group">
+                <label for="customer-name" data-i18n="fullNameLabel">الاسم الكامل</label>
+                <input type="text" id="customer-name" required autocomplete="name" maxlength="80">
+            </div>
+
+            <div class="form-group">
+                <label for="customer-phone" data-i18n="phoneLabel">رقم الهاتف</label>
+                <input type="tel" id="customer-phone" placeholder="0555123456" required autocomplete="tel" dir="ltr" inputmode="tel" maxlength="15">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="customer-wilaya" data-i18n="wilayaLabel">الولاية</label>
+                    <select id="customer-wilaya" required autocomplete="address-level1">
+                        <option value="" disabled selected data-i18n="selectWilaya">اختر الولاية</option>
+                        <option value="01 - أدرار">01 - أدرار</option>
+                        <option value="02 - الشلف">02 - الشلف</option>
+                        <option value="03 - الأغواط">03 - الأغواط</option>
+                        <option value="04 - أم البواقي">04 - أم البواقي</option>
+                        <option value="05 - باتنة">05 - باتنة</option>
+                        <option value="06 - بجاية">06 - بجاية</option>
+                        <option value="07 - بسكرة">07 - بسكرة</option>
+                        <option value="08 - بشار">08 - بشار</option>
+                        <option value="09 - البليدة">09 - البليدة</option>
+                        <option value="10 - البويرة">10 - البويرة</option>
+                        <option value="11 - تمنراست">11 - تمنراست</option>
+                        <option value="12 - تبسة">12 - تبسة</option>
+                        <option value="13 - تلمسان">13 - تلمسان</option>
+                        <option value="14 - تيارت">14 - تيارت</option>
+                        <option value="15 - تيزي وزو">15 - تيزي وزو</option>
+                        <option value="16 - الجزائر">16 - الجزائر</option>
+                        <option value="17 - الجلفة">17 - الجلفة</option>
+                        <option value="18 - جيجل">18 - جيجل</option>
+                        <option value="19 - سطيف">19 - سطيف</option>
+                        <option value="20 - سعيدة">20 - سعيدة</option>
+                        <option value="21 - سكيكدة">21 - سكيكدة</option>
+                        <option value="22 - سيدي بلعباس">22 - سيدي بلعباس</option>
+                        <option value="23 - عنابة">23 - عنابة</option>
+                        <option value="24 - قالمة">24 - قالمة</option>
+                        <option value="25 - قسنطينة">25 - قسنطينة</option>
+                        <option value="26 - المدية">26 - المدية</option>
+                        <option value="27 - مستغانم">27 - مستغانم</option>
+                        <option value="28 - المسيلة">28 - المسيلة</option>
+                        <option value="29 - معسكر">29 - معسكر</option>
+                        <option value="30 - ورقلة">30 - ورقلة</option>
+                        <option value="31 - وهران">31 - وهران</option>
+                        <option value="32 - البيض">32 - البيض</option>
+                        <option value="33 - إليزي">33 - إليزي</option>
+                        <option value="34 - برج بوعريريج">34 - برج بوعريريج</option>
+                        <option value="35 - بومرداس">35 - بومرداس</option>
+                        <option value="36 - الطارف">36 - الطارف</option>
+                        <option value="37 - تندوف">37 - تندوف</option>
+                        <option value="38 - تيسمسيلت">38 - تيسمسيلت</option>
+                        <option value="39 - الوادي">39 - الوادي</option>
+                        <option value="40 - خنشلة">40 - خنشلة</option>
+                        <option value="41 - سوق أهراس">41 - سوق أهراس</option>
+                        <option value="42 - تيبازة">42 - تيبازة</option>
+                        <option value="43 - ميلة">43 - ميلة</option>
+                        <option value="44 - عين الدفلى">44 - عين الدفلى</option>
+                        <option value="45 - النعامة">45 - النعامة</option>
+                        <option value="46 - عين تموشنت">46 - عين تموشنت</option>
+                        <option value="47 - غرداية">47 - غرداية</option>
+                        <option value="48 - غليزان">48 - غليزان</option>
+                        <option value="49 - تيميمون">49 - تيميمون</option>
+                        <option value="50 - برج باجي مختار">50 - برج باجي مختار</option>
+                        <option value="51 - أولاد جلال">51 - أولاد جلال</option>
+                        <option value="52 - بني عباس">52 - بني عباس</option>
+                        <option value="53 - عين صالح">53 - عين صالح</option>
+                        <option value="54 - عين قزام">54 - عين قزام</option>
+                        <option value="55 - تقرت">55 - تقرت</option>
+                        <option value="56 - جانت">56 - جانت</option>
+                        <option value="57 - المغير">57 - المغير</option>
+                        <option value="58 - المنيعة">58 - المنيعة</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="customer-baladiya" data-i18n="baladiyaLabel">البلدية</label>
+                    <input type="text" id="customer-baladiya" required autocomplete="address-level2" maxlength="60">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="customer-address" data-i18n="addressLabel">عنوان التوصيل</label>
+                <textarea id="customer-address" rows="2" required maxlength="200"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="book-title-input" data-i18n="bookTitleLabel">اسم المنتج</label>
+                <input type="text" id="book-title-input" readonly>
+            </div>
+
+            <div class="form-group">
+                <label for="order-quantity" data-i18n="quantityLabel">الكمية</label>
+                <input type="number" id="order-quantity" min="1" max="100" value="1" required inputmode="numeric">
+            </div>
+
+            <div class="order-total-box">
+                <div class="order-total-row">
+                    <span data-i18n="unitPriceLabel">سعر الوحدة</span>
+                    <span id="order-unit-price">-</span>
+                </div>
+                <div class="order-total-row total">
+                    <span data-i18n="totalLabel">المجموع</span>
+                    <span id="order-total">-</span>
+                </div>
+            </div>
+
+            <div class="cod-note">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                <span data-i18n="codNote">الدفع عند الاستلام — سنتصل بك لتأكيد الطلب والتوصيل.</span>
+            </div>
+
+            <button type="submit" id="submit-order-btn" class="btn btn-primary btn-lg full-width">
+                <span data-i18n="submitOrder">تأكيد الطلب</span>
+            </button>
+        </form>
+
+        <div id="order-success" class="order-success-card hidden">
+            <div class="success-icon">
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <h3 data-i18n="orderSuccessTitle">تم استلام طلبك بنجاح!</h3>
+            <p data-i18n="orderSuccessText">سنتواصل معك قريباً لتأكيد التوصيل.</p>
+            
+            <div class="order-summary">
+                <p><strong data-i18n="summaryName">الاسم:</strong> <span id="summary-name"></span></p>
+                <p><strong data-i18n="summaryPhone">الهاتف:</strong> <span id="summary-phone"></span></p>
+                <p><strong data-i18n="summaryBook">المنتج:</strong> <span id="summary-book"></span></p>
+                <p><strong data-i18n="summaryQuantity">الكمية:</strong> <span id="summary-qty"></span></p>
+                <p><strong data-i18n="summaryWilaya">الولاية:</strong> <span id="summary-wilaya"></span></p>
+                <p><strong data-i18n="summaryTotal">المجموع:</strong> <span id="summary-total"></span></p>
+            </div>
+
+            <a href="index.html" class="btn btn-secondary" data-i18n="backToHome">العودة للرئيسية</a>
+        </div>
+
+    </main>
+
+    <footer class="main-footer">
+        <div class="container footer-container">
+            <span data-store-name class="footer-brand">MR beauty</span>
+            <div class="social-links" id="footer-socials"></div>
+            <span class="footer-copy" data-i18n="copyright">© جميع الحقوق محفوظة</span>
+            <p class="footer-disclaimer" data-i18n="footerDisclaimer">المكملات الغذائية لا تغني عن استشارة الطبيب.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

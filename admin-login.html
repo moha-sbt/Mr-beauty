@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل دخول المسؤول - MR beauty</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Anti-flash inline theme and language loader -->
+    <script>
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('mrbeauty_theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                var savedLang = localStorage.getItem('storeLang') || 'ar';
+                document.documentElement.setAttribute('lang', savedLang);
+                document.documentElement.setAttribute('dir', savedLang === 'ar' ? 'rtl' : 'ltr');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js"
+            }
+        }
+    </script>
+
+    <script src="config.js"></script>
+    <script type="module" src="app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-login-body">
+
+    <!-- Top Bar with theme toggle & back link -->
+    <div style="width: 100%; max-width: 420px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <a href="index.html" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span data-i18n="backToHome">العودة للمتجر</span>
+        </a>
+        <button id="theme-toggle-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Theme" title="تغيير المظهر">
+            <svg class="theme-icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+    </div>
+
+    <div class="login-wrapper">
+        <div class="login-card">
+            
+            <div class="login-header">
+                <img src="assets/logo.png" alt="MR beauty" class="store-logo" data-store-logo="full" width="120" height="120">
+                <h1 class="store-name" data-store-name>MR beauty</h1>
+                <p class="admin-badge" data-i18n="adminControlPanel">لوحة التحكم للمسؤول</p>
+            </div>
+
+            <form id="admin-login-form" class="login-form">
+                
+                <div id="login-error-message" class="toast toast-danger hidden"></div>
+
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="login-email" data-i18n="emailLabel">البريد الإلكتروني</label>
+                    <input type="email" id="login-email" required placeholder="admin@example.com" autocomplete="email">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 18px;">
+                    <label for="login-password" data-i18n="passwordLabel">كلمة المرور</label>
+                    <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
+                </div>
+
+                <button type="submit" id="login-submit-btn" class="btn btn-primary full-width">
+                    <span data-i18n="loginButton">تسجيل الدخول</span>
+                </button>
+            </form>
+
+            <div class="login-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); font-size: 0.88rem;">
+                <a href="index.html" class="back-link" data-i18n="backToHome" style="margin: 0;">العودة للمتجر الرئيسي</a>
+                <a href="login.html" class="back-link" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">حساب الزبائن</a>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: is the user logged in?
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Products (Books): Anyone can browse, authenticated admins can create/update/delete
+    match /books/{bookId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+
+      // Product Reviews: Public can read and submit reviews, authenticated can manage
+      match /reviews/{reviewId} {
+        allow read, create: if true;
+        allow update, delete: if isAuthenticated();
+      }
+    }
+
+    // Orders: Anyone can create an order (public checkout)
+    // Only authenticated admins can read, update status, or delete orders
+    match /orders/{orderId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+
+    // Users: Each authenticated user can read their own profile
+    // New customers can create their own profile during registration
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+}

@@ -1,0 +1,1302 @@
+﻿
+let currentLang = localStorage.getItem('storeLang') || config.defaultLang;
+
+export function applyTranslations(lang) {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang] && translations[lang][key]) {
+            el.textContent = translations[lang][key];
+        }
+    });
+}
+
+export function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('storeLang', lang);
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    applyTranslations(lang);
+    document.dispatchEvent(new CustomEvent('langChanged', { detail: lang }));
+}
+
+// Build language dropdown for every #language-switcher button
+document.querySelectorAll('#language-switcher').forEach(btn => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'lang-dropdown-wrap';
+    btn.parentNode.insertBefore(wrapper, btn);
+    wrapper.appendChild(btn);
+
+    const menu = document.createElement('div');
+    menu.className = 'lang-dropdown-menu hidden';
+    menu.innerHTML = `
+        <button class="lang-option" data-lang="ar">🇩🇿 العربية</button>
+        <button class="lang-option" data-lang="en">🇬🇧 English</button>
+        <button class="lang-option" data-lang="fr">🇫🇷 Français</button>
+    `;
+    wrapper.appendChild(menu);
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.toggle('hidden');
+    });
+
+    menu.querySelectorAll('.lang-option').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setLanguage(opt.getAttribute('data-lang'));
+            menu.classList.add('hidden');
+            // Update button text
+            document.querySelectorAll('#language-switcher span[data-i18n="currentLang"]').forEach(span => {
+                span.textContent = translations[opt.getAttribute('data-lang')].currentLang;
+            });
+        });
+    });
+
+    document.addEventListener('click', () => menu.classList.add('hidden'));
+});
+
+setLanguage(currentLang);
+
+
+// ==========================================
+// 3. FIREBASE SETUP & FUNCTIONS
+// ==========================================
+const app = initializeApp(config.firebase);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+// --- Image Upload to Cloudinary ---
+export function uploadBookCover(file, onProgress) {
+    return new Promise(async (resolve, reject) => {
+        const CLOUD_NAME = 'dkptninno';
+        const UPLOAD_PRESET = 'bookstore_covers';
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', UPLOAD_PRESET);
+
+        try {
+            if (onProgress) onProgress(30);
+            const res = await fetch(
+                `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+                { method: 'POST', body: formData }
+            );
+            if (onProgress) onProgress(90);
+            const data = await res.json();
+            if (data.secure_url) {
+                if (onProgress) onProgress(100);
+                resolve(data.secure_url);
+            } else {
+                reject(new Error('فشل الرفع: ' + (data.error?.message || 'خطأ غير معروف')));
+            }
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+// --- Books Operations ---
+export async function getBooks() {
+    const q = query(collection(db, "books"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function getBookById(bookId) {
+    const docRef = doc(db, "books", bookId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+}
+
+export async function addBook(bookData) {
+    return await addDoc(collection(db, "books"), bookData);
+}
+
+export async function updateBook(bookId, bookData) {
+    return await updateDoc(doc(db, "books", bookId), bookData);
+}
+
+export async function deleteBook(bookId) {
+    return await deleteDoc(doc(db, "books", bookId));
+}
+
+// --- Orders Operations ---
+export async function getOrders() {
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function addOrder(orderData) {
+    orderData.createdAt = serverTimestamp();
+    orderData.status = "pending";
+    return await addDoc(collection(db, "orders"), orderData);
+}
+
+export async function updateOrderStatus(orderId, status) {
+    return await updateDoc(doc(db, "orders", orderId), { status });
+}
+
+export async function clearAllOrders() {
+    const q = query(collection(db, "orders"));
+    const snapshot = await getDocs(q);
+    const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "orders", d.id)));
+    await Promise.all(deletePromises);
+    return snapshot.docs.length;
+}
+
+export async function deleteOrdersByIds(ids) {
+    const deletePromises = ids.map(id => deleteDoc(doc(db, "orders", id)));
+    await Promise.all(deletePromises);
+    return ids.length;
+}
+
+// --- Auth & User Role Operations ---
+
+/**
+ * Get user role from Firestore users collection.
+ * Returns "admin", "customer", or null if not found.
+ */
+export async function getUserRole(uid) {
+    const docSnap = await getDoc(doc(db, "users", uid));
+    return docSnap.exists() ? docSnap.data().role : null;
+}
+
+/**
+ * Register a new customer account.
+ * Creates Firebase Auth user + saves role:"customer" in Firestore.
+ */
+export async function registerCustomer(email, password) {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await setDoc(doc(db, "users", cred.user.uid), {
+        email: email,
+        role: "customer",
+        createdAt: serverTimestamp()
+    });
+    return cred;
+}
+
+/**
+ * Login any user (admin or customer).
+ * After login, caller should check role to redirect correctly.
+ */
+export async function loginUser(email, password) {
+    return await signInWithEmailAndPassword(auth, email, password);
+}
+
+export async function logoutUser() {
+    return await signOut(auth);
+}
+
+// Keep old names as aliases for backward compatibility
+export const loginAdmin = loginUser;
+export const logoutAdmin = logoutUser;
+
+
+// ==========================================
+// 4. PAGE SPECIFIC LOGIC (ROUTING)
+// ==========================================
+
+// --- WISHLIST LOGIC ---
+export function getWishlist() {
+    try {
+        return JSON.parse(localStorage.getItem('storeWishlist')) || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+export function isInWishlist(bookId) {
+    return getWishlist().includes(bookId);
+}
+
+export function toggleWishlist(bookId) {
+    let list = getWishlist();
+    const index = list.indexOf(bookId);
+    let added = false;
+    if (index > -1) {
+        list.splice(index, 1);
+    } else {
+        list.push(bookId);
+        added = true;
+    }
+    localStorage.setItem('storeWishlist', JSON.stringify(list));
+    updateWishlistBadge();
+    showToast(
+        added ? (translations[currentLang].addToWishlist || 'تمت الإضافة لقائمة الأمنيات') : (translations[currentLang].removeFromWishlist || 'تمت الإزالة من قائمة الأمنيات'),
+        added ? 'success' : 'info'
+    );
+    return added;
+}
+
+export function updateWishlistBadge() {
+    const list = getWishlist();
+    document.querySelectorAll('#wishlist-badge-count').forEach(el => {
+        el.textContent = list.length;
+    });
+}
+updateWishlistBadge();
+
+// --- REVIEWS FIRESTORE LOGIC ---
+export async function getBookReviews(bookId) {
+    try {
+        const reviewsRef = collection(db, "books", bookId, "reviews");
+        const q = query(reviewsRef, orderBy("createdAt", "desc"));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+        console.error("Error fetching reviews:", err);
+        return [];
+    }
+}
+
+export async function addBookReview(bookId, reviewData) {
+    reviewData.createdAt = serverTimestamp();
+    const reviewsRef = collection(db, "books", bookId, "reviews");
+    return await addDoc(reviewsRef, reviewData);
+}
+
+export async function deleteBookReview(bookId, reviewId) {
+    return await deleteDoc(doc(db, "books", bookId, "reviews", reviewId));
+}
+
+export function getCategoryName(catKey) {
+    const catMap = {
+        ar: { novel: "روايات", history: "تاريخ", "self-help": "تنمية ذاتية", children: "أطفال", science: "علوم وتكنولوجيا", other: "عام" },
+        fr: { novel: "Romans", history: "Histoire", "self-help": "Développement", children: "Enfants", science: "Sciences", other: "Autre" },
+        en: { novel: "Novels", history: "History", "self-help": "Self-Help", children: "Children", science: "Science", other: "Other" }
+    };
+    const lang = currentLang || 'ar';
+    return (catMap[lang] && catMap[lang][catKey]) || catKey || (lang === 'ar' ? 'عام' : 'General');
+}
+
+export function createBookCardElement(book) {
+    const card = document.createElement('div');
+    card.className = 'book-card';
+
+    const inWish = isInWishlist(book.id);
+    const isOutOfStock = book.stock === 0;
+    const hasDiscount = book.discountPrice && parseFloat(book.discountPrice) < parseFloat(book.price);
+    const displayPrice = hasDiscount ? book.discountPrice : book.price;
+
+    card.innerHTML = `
+        <div class="book-cover-wrap">
+            <button class="wishlist-heart-btn ${inWish ? 'active' : ''}" data-id="${book.id}" aria-label="Wishlist">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="${inWish ? '#ef4444' : 'none'}" stroke="${inWish ? '#ef4444' : 'currentColor'}" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            </button>
+            <a href="book-details.html?id=${book.id}">
+                <img src="${book.cover}" alt="${book.title}" class="book-cover">
+            </a>
+            ${isOutOfStock ? `<span class="card-badge out-badge">${translations[currentLang].outOfStock || 'نفذت الكمية'}</span>` : ''}
+            ${hasDiscount ? `<span class="card-badge sale-badge">خصم</span>` : ''}
+            <div class="book-cover-overlay">
+                <a href="book-details.html?id=${book.id}" class="btn btn-secondary overlay-btn">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    التفاصيل
+                </a>
+                ${!isOutOfStock ? `
+                    <a href="order.html?bookId=${book.id}" class="btn btn-primary overlay-order-btn" data-i18n="orderNow">${translations[currentLang].orderNow}</a>
+                ` : ''}
+            </div>
+        </div>
+        <div class="book-info">
+            ${book.category ? `<span class="card-category">${getCategoryName(book.category)}</span>` : ''}
+            <h3 class="book-title"><a href="book-details.html?id=${book.id}">${book.title}</a></h3>
+            <p class="book-author">${book.author}</p>
+            <p class="book-desc">${book.description}</p>
+            <div class="book-footer">
+                <div class="price-box">
+                    <span class="book-price">${displayPrice} <span class="book-currency" data-i18n="currency">${translations[currentLang].currency}</span></span>
+                    ${hasDiscount ? `<span class="old-price">${book.price}</span>` : ''}
+                </div>
+                ${!isOutOfStock ? `
+                    <a href="order.html?bookId=${book.id}" class="btn btn-primary order-btn" data-i18n="orderNow">${translations[currentLang].orderNow}</a>
+                ` : `
+                    <button class="btn btn-secondary order-btn" disabled>${translations[currentLang].outOfStock || 'نفذت الكمية'}</button>
+                `}
+            </div>
+        </div>
+    `;
+
+    const heartBtn = card.querySelector('.wishlist-heart-btn');
+    if (heartBtn) {
+        heartBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const active = toggleWishlist(book.id);
+            heartBtn.classList.toggle('active', active);
+            const svg = heartBtn.querySelector('svg');
+            svg.setAttribute('fill', active ? '#ef4444' : 'none');
+            svg.setAttribute('stroke', active ? '#ef4444' : 'currentColor');
+        });
+    }
+
+    return card;
+}
+
+// ── INDEX.HTML ──
+if (document.getElementById('books-grid')) {
+    const grid = document.getElementById('books-grid');
+    const spinner = document.getElementById('loading-spinner');
+    const emptyState = document.getElementById('empty-state');
+    const featuredSection = document.getElementById('featured-section');
+    const featuredGrid = document.getElementById('featured-grid');
+
+    const logoutBtn = document.getElementById('logout-btn');
+    const loginBtn = document.getElementById('login-btn');
+
+    onAuthStateChanged(auth, (user) => {
+        if (logoutBtn) logoutBtn.classList.toggle('hidden', !user);
+        if (loginBtn) loginBtn.classList.toggle('hidden', !!user);
+    });
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await logoutUser();
+        });
+    }
+
+    let cachedBooks = [];
+
+    function renderBooks(books) {
+        grid.innerHTML = '';
+        if (books.length === 0) {
+            emptyState.classList.remove('hidden');
+            grid.classList.add('hidden');
+        } else {
+            emptyState.classList.add('hidden');
+            grid.classList.remove('hidden');
+            books.forEach(book => {
+                grid.appendChild(createBookCardElement(book));
+            });
+        }
+    }
+
+    function renderFeatured(books) {
+        if (!featuredSection || !featuredGrid) return;
+        const featured = books.filter(b => b.featured === true);
+        if (featured.length === 0) {
+            featuredSection.classList.add('hidden');
+        } else {
+            featuredSection.classList.remove('hidden');
+            featuredGrid.innerHTML = '';
+            featured.forEach(book => featuredGrid.appendChild(createBookCardElement(book)));
+        }
+    }
+
+    function applyFiltersAndSort() {
+        const searchVal = document.getElementById('search-input')?.value.toLowerCase().trim() || '';
+        const catVal = document.getElementById('category-filter')?.value || 'all';
+        const sortVal = document.getElementById('sort-select')?.value || 'newest';
+
+        let result = [...cachedBooks];
+
+        if (searchVal) {
+            result = result.filter(b => 
+                (b.title && b.title.toLowerCase().includes(searchVal)) ||
+                (b.author && b.author.toLowerCase().includes(searchVal))
+            );
+        }
+
+        if (catVal !== 'all') {
+            result = result.filter(b => b.category === catVal);
+        }
+
+        if (sortVal === 'price-asc') {
+            result.sort((a, b) => ((a.discountPrice || a.price) - (b.discountPrice || b.price)));
+        } else if (sortVal === 'price-desc') {
+            result.sort((a, b) => ((b.discountPrice || b.price) - (a.discountPrice || a.price)));
+        }
+
+        renderBooks(result);
+    }
+
+    document.getElementById('search-input')?.addEventListener('input', applyFiltersAndSort);
+    document.getElementById('category-filter')?.addEventListener('change', applyFiltersAndSort);
+    document.getElementById('sort-select')?.addEventListener('change', applyFiltersAndSort);
+
+    document.getElementById('header-wishlist-btn')?.addEventListener('click', () => {
+        const list = getWishlist();
+        if (list.length === 0) {
+            showToast(translations[currentLang].noWishlistBooks || 'لا توجد كتب في قائمة الأمنيات بعد', 'info');
+            return;
+        }
+        const wishBooks = cachedBooks.filter(b => list.includes(b.id));
+        renderBooks(wishBooks);
+        showToast(`${translations[currentLang].wishlistTitle || 'قائمة الأمنيات'}: (${wishBooks.length})`, 'info');
+    });
+
+    getBooks().then(books => {
+        cachedBooks = books;
+        if (spinner) spinner.classList.add('hidden');
+        renderFeatured(books);
+        applyFiltersAndSort();
+
+        document.addEventListener('langChanged', () => {
+            renderFeatured(cachedBooks);
+            applyFiltersAndSort();
+        });
+    }).catch(err => console.error("Error loading books:", err));
+}
+
+// ── BOOK-DETAILS.HTML ──
+if (document.getElementById('details-content')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookId = urlParams.get('id');
+
+    const loading = document.getElementById('details-loading');
+    const errorBox = document.getElementById('details-error');
+    const content = document.getElementById('details-content');
+
+    const logoutBtn = document.getElementById('logout-btn');
+    const loginBtn = document.getElementById('login-btn');
+
+    onAuthStateChanged(auth, (user) => {
+        if (logoutBtn) logoutBtn.classList.toggle('hidden', !user);
+        if (loginBtn) loginBtn.classList.toggle('hidden', !!user);
+    });
+
+    if (!bookId) {
+        if (loading) loading.classList.add('hidden');
+        if (errorBox) errorBox.classList.remove('hidden');
+    } else {
+        getBookById(bookId).then(async (book) => {
+            if (loading) loading.classList.add('hidden');
+            if (!book) {
+                if (errorBox) errorBox.classList.remove('hidden');
+                return;
+            }
+
+            if (content) content.classList.remove('hidden');
+            document.getElementById('detail-cover').src = book.cover;
+            document.getElementById('detail-title').textContent = book.title;
+            document.getElementById('detail-author').textContent = book.author;
+            document.getElementById('detail-desc').textContent = book.description;
+
+            // Breadcrumbs
+            const catName = getCategoryName(book.category);
+            document.getElementById('breadcrumb-category').textContent = catName;
+            document.getElementById('breadcrumb-title').textContent = book.title;
+
+            const catEl = document.getElementById('detail-category');
+            if (book.category) {
+                catEl.textContent = catName;
+                catEl.classList.remove('hidden');
+            } else {
+                catEl.classList.add('hidden');
+            }
+
+            // Price & Discount
+            const priceWrap = document.getElementById('detail-price');
+            const oldPrice = document.getElementById('detail-old-price');
+
+            if (book.discountPrice && parseFloat(book.discountPrice) < parseFloat(book.price)) {
+                priceWrap.textContent = `${book.discountPrice} ${translations[currentLang].currency}`;
+                oldPrice.textContent = `${book.price} ${translations[currentLang].currency}`;
+                oldPrice.classList.remove('hidden');
+            } else {
+                priceWrap.textContent = `${book.price} ${translations[currentLang].currency}`;
+                oldPrice.classList.add('hidden');
+            }
+
+            // Stock Status
+            const stockBadge = document.getElementById('detail-stock-badge');
+            const orderBtn = document.getElementById('detail-order-btn');
+            if (book.stock === 0) {
+                stockBadge.textContent = translations[currentLang].outOfStock || "نفذت الكمية";
+                stockBadge.className = "stock-badge out-of-stock";
+                orderBtn.classList.add('btn-disabled');
+                orderBtn.textContent = translations[currentLang].outOfStock || "نفذت الكمية";
+                orderBtn.removeAttribute('href');
+                orderBtn.addEventListener('click', (e) => e.preventDefault());
+            } else {
+                stockBadge.textContent = translations[currentLang].inStock || "متوفر بالمخزون";
+                stockBadge.className = "stock-badge in-stock";
+                orderBtn.href = `order.html?bookId=${book.id}`;
+            }
+
+            // Detail Wishlist Button
+            const wishBtn = document.getElementById('detail-wishlist-btn');
+            if (wishBtn) {
+                const inW = isInWishlist(book.id);
+                wishBtn.classList.toggle('active', inW);
+                wishBtn.addEventListener('click', () => {
+                    const added = toggleWishlist(book.id);
+                    wishBtn.classList.toggle('active', added);
+                });
+            }
+
+            // Render Reviews Logic
+            async function loadReviews() {
+                const reviews = await getBookReviews(book.id);
+                const listEl = document.getElementById('reviews-list');
+                const avgValEl = document.getElementById('avg-rating-val');
+                const avgStarsEl = document.getElementById('avg-stars-display');
+                const totalCountEl = document.getElementById('total-reviews-text');
+
+                if (!listEl) return;
+
+                if (reviews.length === 0) {
+                    if (avgValEl) avgValEl.textContent = "0.0";
+                    if (avgStarsEl) avgStarsEl.textContent = "☆☆☆☆☆";
+                    if (totalCountEl) totalCountEl.textContent = "0 تقييمات";
+                    listEl.innerHTML = `<p class="empty-reviews-text">لا توجد مراجعات حتى الآن. كُن أول من يقيّم هذا الكتاب!</p>`;
+                } else {
+                    const sum = reviews.reduce((acc, r) => acc + (parseFloat(r.rating) || 5), 0);
+                    const avg = (sum / reviews.length).toFixed(1);
+                    const starsStr = "★".repeat(Math.round(avg)) + "☆".repeat(5 - Math.round(avg));
+
+                    if (avgValEl) avgValEl.textContent = avg;
+                    if (avgStarsEl) avgStarsEl.textContent = starsStr;
+                    if (totalCountEl) totalCountEl.textContent = `${reviews.length} تقييمات`;
+
+                    listEl.innerHTML = '';
+                    reviews.forEach(r => {
+                        const item = document.createElement('div');
+                        item.className = 'review-item-card';
+                        const dateStr = r.createdAt?.toDate ? new Date(r.createdAt.toDate()).toLocaleDateString() : '';
+                        const rStars = "★".repeat(r.rating || 5) + "☆".repeat(5 - (r.rating || 5));
+                        item.innerHTML = `
+                            <div class="review-header">
+                                <span class="reviewer-name">${r.name || 'قارئ مجهول'}</span>
+                                <span class="review-date">${dateStr}</span>
+                            </div>
+                            <div class="review-stars">${rStars}</div>
+                            <p class="review-text">${r.comment || ''}</p>
+                        `;
+                        listEl.appendChild(item);
+                    });
+                }
+            }
+
+            loadReviews();
+
+            // Review Form submit
+            const rForm = document.getElementById('review-form');
+            if (rForm) {
+                rForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const submitBtn = document.getElementById('submit-review-btn');
+                    submitBtn.disabled = true;
+
+                    const ratingVal = parseInt(rForm.querySelector('input[name="rating"]:checked')?.value || 5);
+                    const nameVal = document.getElementById('reviewer-name').value.trim();
+                    const commentVal = document.getElementById('review-comment').value.trim();
+
+                    try {
+                        await addBookReview(book.id, {
+                            rating: ratingVal,
+                            name: nameVal || 'قارئ متجر الكتب',
+                            comment: commentVal
+                        });
+                        showToast(translations[currentLang].reviewSuccess || 'تم نشر التقييم بنجاح', 'success');
+                        rForm.reset();
+                        submitBtn.disabled = false;
+                        loadReviews();
+                    } catch (err) {
+                        console.error('Review submit error:', err);
+                        showToast('حدث خطأ أثناء إرسال التقييم.', 'error');
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+
+            // Similar Books
+            if (book.category) {
+                const allBooks = await getBooks();
+                const similar = allBooks.filter(b => b.category === book.category && b.id !== book.id);
+                if (similar.length > 0) {
+                    const simSection = document.getElementById('similar-books-section');
+                    const simGrid = document.getElementById('similar-books-grid');
+                    if (simSection && simGrid) {
+                        simSection.classList.remove('hidden');
+                        simGrid.innerHTML = '';
+                        similar.slice(0, 4).forEach(simBook => {
+                            simGrid.appendChild(createBookCardElement(simBook));
+                        });
+                    }
+                }
+            }
+
+        }).catch(err => {
+            console.error("Details error:", err);
+            if (loading) loading.classList.add('hidden');
+            if (errorBox) errorBox.classList.remove('hidden');
+        });
+    }
+}
+
+
+// ── ORDER.HTML ──
+if (document.getElementById('order-form')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookId = urlParams.get('bookId');
+
+    if (!bookId) {
+        document.getElementById('order-loading').classList.add('hidden');
+        document.getElementById('order-error').classList.remove('hidden');
+    } else {
+        getBookById(bookId).then(book => {
+            document.getElementById('order-loading').classList.add('hidden');
+            if (!book) {
+                document.getElementById('order-error').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('order-book-details').classList.remove('hidden');
+            document.getElementById('preview-cover').src = book.cover;
+            document.getElementById('preview-title').textContent = book.title;
+            document.getElementById('preview-author').textContent = book.author;
+            document.getElementById('preview-price').textContent = `${book.price} ${translations[currentLang].currency}`;
+
+            document.getElementById('order-form').classList.remove('hidden');
+            document.getElementById('book-title-input').value = book.title;
+
+            document.getElementById('order-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('submit-order-btn');
+                btn.disabled = true;
+
+                const orderData = {
+                    customerName: document.getElementById('customer-name').value,
+                    phone: document.getElementById('customer-phone').value,
+                    address: document.getElementById('customer-address').value,
+                    bookId: book.id,
+                    bookTitle: book.title,
+                    quantity: parseInt(document.getElementById('order-quantity').value)
+                };
+
+                try {
+                    await addOrder(orderData);
+                    document.getElementById('order-form').classList.add('hidden');
+                    document.getElementById('order-book-details').classList.add('hidden');
+                    document.getElementById('order-success').classList.remove('hidden');
+
+                    document.getElementById('summary-name').textContent = orderData.customerName;
+                    document.getElementById('summary-phone').textContent = orderData.phone;
+                    document.getElementById('summary-book').textContent = orderData.bookTitle;
+                    document.getElementById('summary-qty').textContent = orderData.quantity;
+                } catch (error) {
+                    console.error("Order error", error);
+                    btn.disabled = false;
+                }
+            });
+        });
+    }
+}
+
+
+// ── LOGIN.HTML (unified: customer + admin) ──
+if (document.getElementById('login-form') || document.getElementById('register-form')) {
+
+    // If already logged in → redirect based on role
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            const role = await getUserRole(user.uid);
+            if (role === 'admin') {
+                window.location.href = 'admin-dashboard.html';
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+    });
+
+    // Tab switching
+    const tabLoginBtn = document.getElementById('tab-login-btn');
+    const tabRegBtn   = document.getElementById('tab-register-btn');
+    const panelLogin  = document.getElementById('panel-login');
+    const panelReg    = document.getElementById('panel-register');
+    const msgBox      = document.getElementById('auth-message');
+
+    function showMsg(text, type = 'error') {
+        msgBox.textContent = text;
+        msgBox.className = `auth-msg show ${type}`;
+    }
+    function clearMsg() {
+        msgBox.className = 'auth-msg';
+        msgBox.textContent = '';
+    }
+
+    tabLoginBtn.addEventListener('click', () => {
+        tabLoginBtn.classList.add('active');
+        tabRegBtn.classList.remove('active');
+        panelLogin.classList.add('active');
+        panelReg.classList.remove('active');
+        clearMsg();
+    });
+
+    tabRegBtn.addEventListener('click', () => {
+        tabRegBtn.classList.add('active');
+        tabLoginBtn.classList.remove('active');
+        panelReg.classList.add('active');
+        panelLogin.classList.remove('active');
+        clearMsg();
+    });
+
+    // Helper: set button loading state
+    function setLoading(btn, loading) {
+        if (loading) {
+            btn.disabled = true;
+            btn.dataset.originalText = btn.textContent;
+            btn.innerHTML = `<span class="btn-spinner"></span> جاري التحقق...`;
+        } else {
+            btn.disabled = false;
+            btn.textContent = btn.dataset.originalText || btn.textContent;
+        }
+    }
+
+    // ── Login Form Submit ──
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearMsg();
+        const btn = document.getElementById('login-submit-btn');
+        const email = document.getElementById('login-email').value.trim();
+        const pass  = document.getElementById('login-password').value;
+
+        setLoading(btn, true);
+        try {
+            const cred = await loginUser(email, pass);
+            const role = await getUserRole(cred.user.uid);
+
+            if (role === 'admin') {
+                window.location.href = 'admin-dashboard.html';
+            } else {
+                // customer or no role yet → go to home
+                window.location.href = 'index.html';
+            }
+        } catch (err) {
+            setLoading(btn, false);
+            const errorMap = {
+                'auth/invalid-credential':   'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+                'auth/user-not-found':        'لا يوجد حساب بهذا البريد الإلكتروني.',
+                'auth/wrong-password':        'كلمة المرور غير صحيحة.',
+                'auth/too-many-requests':     'تم تجاوز عدد المحاولات. حاول لاحقاً.',
+                'auth/network-request-failed':'خطأ في الاتصال بالإنترنت.'
+            };
+            showMsg(errorMap[err.code] || 'حدث خطأ، حاول مرة أخرى.', 'error');
+        }
+    });
+
+    // ── Register Form Submit ──
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearMsg();
+        const btn     = document.getElementById('register-submit-btn');
+        const email   = document.getElementById('register-email').value.trim();
+        const pass    = document.getElementById('register-password').value;
+        const confirm = document.getElementById('register-confirm').value;
+
+        if (pass !== confirm) {
+            showMsg('كلمتا المرور غير متطابقتين.', 'error');
+            return;
+        }
+        if (pass.length < 8) {
+            showMsg('كلمة المرور يجب أن تكون 8 أحرف على الأقل.', 'error');
+            return;
+        }
+
+        setLoading(btn, true);
+        try {
+            await registerCustomer(email, pass);
+            // onAuthStateChanged will handle redirect to index.html
+        } catch (err) {
+            setLoading(btn, false);
+            const errorMap = {
+                'auth/email-already-in-use': 'هذا البريد الإلكتروني مسجّل مسبقاً.',
+                'auth/invalid-email':         'صيغة البريد الإلكتروني غير صحيحة.',
+                'auth/weak-password':         'كلمة المرور ضعيفة جداً.'
+            };
+            showMsg(errorMap[err.code] || 'حدث خطأ، حاول مرة أخرى.', 'error');
+        }
+    });
+}
+
+
+// ── ADMIN-LOGIN.HTML (kept for backward compat — redirects to login.html) ──
+if (document.getElementById('admin-login-form') && !document.getElementById('login-form')) {
+    onAuthStateChanged(auth, (user) => {
+        if (user) window.location.href = "admin-dashboard.html";
+    });
+
+    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const pass  = document.getElementById('login-password').value;
+        const errBox = document.getElementById('login-error-message');
+
+        try {
+            await loginUser(email, pass);
+        } catch (error) {
+            errBox.textContent = "البيانات غير صحيحة / Identifiants incorrects / Incorrect credentials";
+            errBox.classList.remove('hidden');
+        }
+    });
+}
+
+
+// ── ADMIN-DASHBOARD.HTML ──
+if (document.querySelector('.admin-dashboard-body')) {
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            window.location.href = "login.html";
+            return;
+        }
+        // Verify role before showing dashboard
+        const role = await getUserRole(user.uid);
+        if (role !== 'admin') {
+            await logoutUser();
+            window.location.href = "login.html";
+            return;
+        }
+        initDashboard();
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+        await logoutUser();
+        window.location.href = "login.html";
+    });
+
+    // Tabs Logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            e.target.classList.add('active');
+            document.getElementById(e.target.getAttribute('data-target')).classList.remove('hidden');
+        });
+    });
+
+    // --- Clear All Orders Logic ---
+    const clearOrdersBtn  = document.getElementById('clear-orders-btn');
+    const clearOrdersModal = document.getElementById('clear-orders-modal');
+    const confirmClearBtn = document.getElementById('confirm-clear-orders-btn');
+    const cancelClearBtn  = document.getElementById('cancel-clear-orders-btn');
+
+    if (clearOrdersBtn) {
+        clearOrdersBtn.addEventListener('click', () => {
+            clearOrdersModal.classList.remove('hidden');
+        });
+    }
+
+    if (cancelClearBtn) {
+        cancelClearBtn.addEventListener('click', () => {
+            clearOrdersModal.classList.add('hidden');
+        });
+    }
+
+    if (clearOrdersModal) {
+        clearOrdersModal.addEventListener('click', (e) => {
+            if (e.target === clearOrdersModal) clearOrdersModal.classList.add('hidden');
+        });
+    }
+
+    if (confirmClearBtn) {
+        confirmClearBtn.addEventListener('click', async () => {
+            confirmClearBtn.disabled = true;
+            confirmClearBtn.innerHTML = `<span class="btn-spinner"></span>`;
+            try {
+                const count = await clearAllOrders();
+                clearOrdersModal.classList.add('hidden');
+                if (count === 0) {
+                    showToast(translations[currentLang].clearOrdersEmpty || 'لا توجد طلبات للمسح', 'info');
+                } else {
+                    showToast(translations[currentLang].clearOrdersSuccess || 'تم مسح جميع الطلبات بنجاح', 'success');
+                }
+                await loadAdminOrders();
+            } catch (err) {
+                console.error('Clear orders error:', err);
+                showToast('حدث خطأ أثناء مسح الطلبات', 'error');
+            } finally {
+                confirmClearBtn.disabled = false;
+                confirmClearBtn.textContent = translations[currentLang].clearOrdersConfirmBtn || 'نعم، امسح الكل';
+            }
+        });
+    }
+
+    let allBooks = [];
+
+    async function initDashboard() {
+        await loadAdminBooks();
+        await loadAdminOrders();
+    }
+
+    // --- Image Upload UI Logic ---
+    function setupImageUpload() {
+        const dropZone    = document.getElementById('cover-drop-zone');
+        const fileInput   = document.getElementById('book-cover-file');
+        const preview     = document.getElementById('cover-preview');
+        const progressBar = document.getElementById('upload-progress-bar');
+        const progressWrap = document.getElementById('upload-progress-wrap');
+        const statusText  = document.getElementById('upload-status-text');
+
+        if (!dropZone) return;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) handleFile(file);
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files[0]) handleFile(fileInput.files[0]);
+        });
+
+        async function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+
+            progressWrap.classList.remove('hidden');
+            statusText.textContent = translations[currentLang].uploadProgress || 'جاري الرفع...';
+            dropZone.style.pointerEvents = 'none';
+
+            try {
+                const url = await uploadBookCover(file, (percent) => {
+                    progressBar.style.width = percent + '%';
+                    progressBar.textContent = percent + '%';
+                });
+                document.getElementById('book-cover-url').value = url;
+                statusText.textContent = translations[currentLang].uploadDone || 'تم الرفع ✓';
+                statusText.style.color = 'var(--success-color)';
+            } catch (err) {
+                console.error('Upload error:', err);
+                statusText.textContent = 'فشل الرفع. حاول مرة أخرى.';
+                statusText.style.color = 'var(--danger-color)';
+            } finally {
+                dropZone.style.pointerEvents = 'auto';
+            }
+        }
+    }
+
+    // --- Tab: Books ---
+    async function loadAdminBooks() {
+        const grid = document.getElementById('admin-books-grid');
+        document.getElementById('admin-books-loading').classList.remove('hidden');
+        allBooks = await getBooks();
+        document.getElementById('admin-books-loading').classList.add('hidden');
+
+        grid.innerHTML = '';
+        grid.classList.remove('hidden');
+
+        allBooks.forEach(book => {
+            const card = document.createElement('div');
+            card.className = 'book-card';
+            card.innerHTML = `
+                <div class="book-cover-wrap">
+                    <img src="${book.cover}" class="book-cover">
+                </div>
+                <div class="book-info">
+                    <h3 class="book-title">${book.title}</h3>
+                    <p class="book-author">${book.author}</p>
+                    <p class="book-price">${book.price} ${config.currency}</p>
+                    <div class="admin-card-actions">
+                        <button class="btn btn-secondary edit-btn" data-id="${book.id}">${translations[currentLang].edit}</button>
+                        <button class="btn btn-danger delete-btn" data-id="${book.id}">${translations[currentLang].delete}</button>
+                    </div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                if (confirm(translations[currentLang].deleteConfirm)) {
+                    await deleteBook(e.target.getAttribute('data-id'));
+                    loadAdminBooks();
+                }
+            });
+        });
+
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const book = allBooks.find(b => b.id === e.target.getAttribute('data-id'));
+                openModal(book);
+            });
+        });
+    }
+
+    // --- Modal Logic ---
+    function openModal(book = null) {
+        document.getElementById('book-form').reset();
+        document.getElementById('book-id-input').value = '';
+        document.getElementById('book-cover-url').value = '';
+        document.getElementById('cover-preview').classList.add('hidden');
+        document.getElementById('upload-progress-wrap').classList.add('hidden');
+        document.getElementById('upload-status-text').textContent = '';
+        document.getElementById('upload-status-text').style.color = '';
+        document.getElementById('upload-progress-bar').style.width = '0%';
+        document.getElementById('upload-progress-bar').textContent = '';
+
+        if (book) {
+            document.getElementById('modal-title').textContent = translations[currentLang].edit || 'تعديل';
+            document.getElementById('book-id-input').value = book.id;
+            document.getElementById('book-title').value = book.title;
+            document.getElementById('book-author').value = book.author;
+            document.getElementById('book-category').value = book.category || 'novel';
+            document.getElementById('book-stock').value = book.stock !== undefined ? book.stock : 10;
+            document.getElementById('book-price').value = book.price;
+            document.getElementById('book-discount-price').value = book.discountPrice || '';
+            document.getElementById('book-featured').checked = !!book.featured;
+            document.getElementById('book-cover-url').value = book.cover;
+            document.getElementById('book-desc').value = book.description;
+            document.getElementById('cover-preview').src = book.cover;
+            document.getElementById('cover-preview').classList.remove('hidden');
+        } else {
+            document.getElementById('modal-title').setAttribute('data-i18n', 'addNewBook');
+            document.getElementById('modal-title').textContent = translations[currentLang].addNewBook || 'إضافة كتاب جديد';
+        }
+
+        document.getElementById('book-modal').classList.remove('hidden');
+        setupImageUpload();
+    }
+
+    document.getElementById('add-book-btn').addEventListener('click', () => openModal());
+
+    document.getElementById('close-modal-btn').addEventListener('click', () => {
+        document.getElementById('book-modal').classList.add('hidden');
+    });
+
+    document.getElementById('book-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const coverUrl = document.getElementById('book-cover-url').value;
+        if (!coverUrl) {
+            showToast(translations[currentLang].uploadCoverError, 'warning');
+            return;
+        }
+        const discVal = document.getElementById('book-discount-price').value;
+        const bookData = {
+            title:         document.getElementById('book-title').value,
+            author:        document.getElementById('book-author').value,
+            category:      document.getElementById('book-category').value,
+            stock:         parseInt(document.getElementById('book-stock').value) || 0,
+            price:         parseFloat(document.getElementById('book-price').value),
+            discountPrice: discVal ? parseFloat(discVal) : null,
+            featured:      document.getElementById('book-featured').checked,
+            cover:         coverUrl,
+            description:   document.getElementById('book-desc').value
+        };
+        const id = document.getElementById('book-id-input').value;
+        if (id) await updateBook(id, bookData);
+        else    await addBook(bookData);
+
+        showToast(id ? 'تم تحديث الكتاب بنجاح' : 'تم إضافة الكتاب بنجاح', 'success');
+        document.getElementById('book-modal').classList.add('hidden');
+        loadAdminBooks();
+    });
+
+    // --- Tab: Orders & Stats ---
+    async function loadAdminOrders() {
+        document.getElementById('admin-orders-loading').classList.remove('hidden');
+        const orders = await getOrders();
+        document.getElementById('admin-orders-loading').classList.add('hidden');
+        document.getElementById('orders-table').classList.remove('hidden');
+
+        // Track selected order IDs
+        let selectedIds = new Set();
+
+        function updateActionBar() {
+            const bar   = document.getElementById('selection-action-bar');
+            const label = document.getElementById('selected-count-label');
+            const count = selectedIds.size;
+            if (count > 0) {
+                bar.classList.remove('hidden');
+                const fn = translations[currentLang].selectedCount;
+                label.textContent = typeof fn === 'function' ? fn(count) : `${count} محدد`;
+            } else {
+                bar.classList.add('hidden');
+            }
+            // Sync select-all state
+            const allBoxes = document.querySelectorAll('.order-row-checkbox');
+            const selectAll = document.getElementById('select-all-orders');
+            if (selectAll && allBoxes.length > 0) {
+                selectAll.checked = allBoxes.length === count;
+                selectAll.indeterminate = count > 0 && count < allBoxes.length;
+            }
+        }
+
+        const renderTable = (filter) => {
+            const tbody = document.getElementById('orders-table-body');
+            tbody.innerHTML = '';
+            selectedIds.clear();
+            updateActionBar();
+            let filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+
+            if (filtered.length === 0) {
+                document.getElementById('no-orders-msg').classList.remove('hidden');
+                document.getElementById('orders-table').classList.add('hidden');
+            } else {
+                document.getElementById('no-orders-msg').classList.add('hidden');
+                document.getElementById('orders-table').classList.remove('hidden');
+                filtered.forEach(order => {
+                    const dateStr = order.createdAt ? new Date(order.createdAt.toDate()).toLocaleDateString() : 'N/A';
+                    const tr = document.createElement('tr');
+                    tr.dataset.id = order.id;
+                    tr.innerHTML = `
+                        <td class="checkbox-col">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" class="order-row-checkbox" data-id="${order.id}">
+                                <span class="checkmark"></span>
+                            </label>
+                        </td>
+                        <td>${dateStr}</td>
+                        <td>${order.customerName}</td>
+                        <td>${order.phone}</td>
+                        <td>${order.address}</td>
+                        <td>${order.bookTitle}</td>
+                        <td>${order.quantity}</td>
+                        <td>
+                            <select class="status-select" data-id="${order.id}">
+                                <option value="pending"   ${order.status === 'pending'   ? 'selected' : ''}>${translations[currentLang].statusPending}</option>
+                                <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>${translations[currentLang].statusCompleted}</option>
+                                <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>${translations[currentLang].statusCancelled}</option>
+                            </select>
+                        </td>
+                    `;
+
+                    // Checkbox change
+                    const cb = tr.querySelector('.order-row-checkbox');
+                    cb.addEventListener('change', () => {
+                        if (cb.checked) {
+                            selectedIds.add(order.id);
+                            tr.classList.add('row-selected');
+                        } else {
+                            selectedIds.delete(order.id);
+                            tr.classList.remove('row-selected');
+                        }
+                        updateActionBar();
+                    });
+
+                    // Click on row (excluding interactive elements) toggles checkbox
+                    tr.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION' ||
+                            e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL' ||
+                            e.target.tagName === 'SPAN') return;
+                        cb.checked = !cb.checked;
+                        cb.dispatchEvent(new Event('change'));
+                    });
+
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Status select listeners
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', async (e) => {
+                    await updateOrderStatus(e.target.getAttribute('data-id'), e.target.value);
+                    loadAdminOrders();
+                });
+            });
+
+            // Select-all checkbox
+            const selectAllBox = document.getElementById('select-all-orders');
+            if (selectAllBox) {
+                selectAllBox.checked = false;
+                selectAllBox.indeterminate = false;
+                selectAllBox.onchange = () => {
+                    const allCbs = document.querySelectorAll('.order-row-checkbox');
+                    allCbs.forEach(cb => {
+                        cb.checked = selectAllBox.checked;
+                        const id = cb.getAttribute('data-id');
+                        const parentTr = cb.closest('tr');
+                        if (selectAllBox.checked) {
+                            selectedIds.add(id);
+                            parentTr.classList.add('row-selected');
+                        } else {
+                            selectedIds.delete(id);
+                            parentTr.classList.remove('row-selected');
+                        }
+                    });
+                    updateActionBar();
+                };
+            }
+        };
+
+        // Delete selected button
+        const deleteSelBtn = document.getElementById('delete-selected-btn');
+        if (deleteSelBtn) {
+            deleteSelBtn.onclick = async () => {
+                if (selectedIds.size === 0) return;
+                const idsToDelete = [...selectedIds];
+                deleteSelBtn.disabled = true;
+                deleteSelBtn.innerHTML = `<span class="btn-spinner"></span>`;
+                try {
+                    await deleteOrdersByIds(idsToDelete);
+                    showToast(`تم حذف ${idsToDelete.length} طلب بنجاح`, 'success');
+                    await loadAdminOrders();
+                } catch (err) {
+                    console.error('Delete selected error:', err);
+                    showToast('حدث خطأ أثناء الحذف', 'error');
+                    deleteSelBtn.disabled = false;
+                    deleteSelBtn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg> حذف المختار`;
+                }
+            };
+        }
+
+        // Deselect all button
+        const deselectBtn = document.getElementById('deselect-all-btn');
+        if (deselectBtn) {
+            deselectBtn.onclick = () => {
+                selectedIds.clear();
+                document.querySelectorAll('.order-row-checkbox').forEach(cb => {
+                    cb.checked = false;
+                    cb.closest('tr').classList.remove('row-selected');
+                });
+                const selectAll = document.getElementById('select-all-orders');
+                if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+                updateActionBar();
+            };
+        }
+
+        renderTable('all');
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                renderTable(e.target.getAttribute('data-filter'));
+            });
+        });
+
+        // Stats
+        document.getElementById('admin-stats-loading').classList.add('hidden');
+        document.getElementById('stats-grid').classList.remove('hidden');
+
+        let pending = 0, completed = 0, revenue = 0;
+        let bookSales = {};
+
+        orders.forEach(o => {
+            if (o.status === 'pending') pending++;
+            if (o.status === 'completed') {
+                completed++;
+                const book = allBooks.find(b => b.id === o.bookId);
+                if (book) revenue += (book.price * o.quantity);
+                if (!bookSales[o.bookTitle]) bookSales[o.bookTitle] = 0;
+                bookSales[o.bookTitle] += o.quantity;
+            }
+        });
+
+        let bestSeller = "-";
+        let maxSales = 0;
+        for (const [title, qty] of Object.entries(bookSales)) {
+            if (qty > maxSales) { maxSales = qty; bestSeller = title; }
+        }
+
+        document.getElementById('stat-books-count').textContent   = allBooks.length;
+        document.getElementById('stat-orders-count').textContent  = orders.length;
+        document.getElementById('stat-pending-count').textContent = pending;
+        document.getElementById('stat-completed-count').textContent = completed;
+        document.getElementById('stat-revenue').textContent       = `${revenue.toFixed(2)} ${config.currency}`;
+        document.getElementById('stat-best-seller').textContent   = bestSeller;
+    }
+}

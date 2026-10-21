@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تفاصيل المنتج - MR beauty</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Anti-flash inline theme and language loader -->
+    <script>
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('mrbeauty_theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                var savedLang = localStorage.getItem('storeLang') || 'ar';
+                document.documentElement.setAttribute('lang', savedLang);
+                document.documentElement.setAttribute('dir', savedLang === 'ar' ? 'rtl' : 'ltr');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js"
+            }
+        }
+    </script>
+
+    <script src="config.js"></script>
+    <script type="module" src="app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="container header-container">
+            <a href="index.html" class="nav-brand">
+                <img src="assets/logo-icon.png" alt="MR beauty" class="store-logo" data-store-logo width="40" height="40">
+                <span class="store-name" data-store-name>MR beauty</span>
+            </a>
+
+            <!-- Header Actions -->
+            <div class="header-actions">
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Theme" title="تغيير المظهر">
+                    <svg class="theme-icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+
+                <!-- Wishlist Quick Link -->
+                <a href="index.html#catalog" id="header-wishlist-btn" class="wishlist-header-btn" title="المفضلة" aria-label="Wishlist">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <span id="wishlist-badge-count" class="wishlist-badge">0</span>
+                </a>
+
+                <!-- Mobile Hamburger Button -->
+                <button id="menu-toggle-btn" class="menu-toggle-btn" type="button" aria-label="Menu" aria-expanded="false" title="القائمة">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+
+                <!-- Navigation Panel -->
+                <nav id="main-nav" class="nav-drawer" aria-label="Main Navigation">
+                    <div class="drawer-header">
+                        <span class="drawer-brand" data-store-name>MR beauty</span>
+                        <button id="drawer-close-btn" class="drawer-close-btn" type="button" aria-label="Close menu">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+
+                    <div class="nav-menu">
+                        <a href="index.html" class="nav-item-link" data-i18n="backToHome">الرئيسية</a>
+                        <a href="about.html" class="nav-item-link" data-i18n="aboutUs">من نحن</a>
+                        <a href="admin-dashboard.html" id="admin-link" class="nav-item-link admin-nav-link hidden" data-i18n="adminDashboard">لوحة التحكم</a>
+                    </div>
+
+                    <div class="nav-controls">
+                        <button id="language-switcher" class="btn btn-secondary language-btn" type="button">
+                            <span data-i18n="currentLang">العربية</span>
+                        </button>
+
+                        <a href="login.html" id="login-btn" class="btn btn-primary login-btn hidden" data-i18n="loginButton">
+                            تسجيل الدخول
+                        </a>
+
+                        <button id="logout-btn" class="btn btn-danger logout-btn hidden" type="button" data-i18n="logout">
+                            تسجيل الخروج
+                        </button>
+                    </div>
+
+                    <div class="drawer-footer">
+                        <div class="drawer-social-links" id="drawer-socials"></div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <div id="nav-backdrop" class="nav-backdrop"></div>
+
+    <main class="container main-content details-container">
+
+        <!-- Breadcrumbs -->
+        <nav class="breadcrumbs">
+            <a href="index.html" data-i18n="backToHome">الرئيسية</a>
+            <span class="sep">&gt;</span>
+            <span id="breadcrumb-category" class="breadcrumb-cat">...</span>
+            <span class="sep">&gt;</span>
+            <span id="breadcrumb-title" class="breadcrumb-current">...</span>
+        </nav>
+
+        <div id="details-loading" class="loading-container">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="details-error" class="empty-state hidden">
+            <p data-i18n="bookNotFound">المنتج غير موجود.</p>
+            <a href="index.html" class="btn btn-primary" data-i18n="backToHome">العودة للرئيسية</a>
+        </div>
+
+        <div id="details-content" class="book-details-wrapper hidden">
+            <div class="details-cover-wrap">
+                <img id="detail-cover" src="" alt="Product image" class="details-cover-img" loading="lazy" decoding="async">
+                <div id="detail-stock-badge" class="stock-badge"></div>
+            </div>
+            
+            <div class="details-info-wrap">
+                <span id="detail-category" class="category-badge"></span>
+                <h1 id="detail-title" class="detail-title"></h1>
+                <p id="detail-author" class="detail-author"></p>
+                <p id="detail-size" class="detail-size hidden"></p>
+                
+                <div class="detail-price-wrap">
+                    <span id="detail-price" class="detail-price"></span>
+                    <span id="detail-old-price" class="detail-old-price hidden"></span>
+                </div>
+
+                <div class="detail-desc-wrap">
+                    <h3 data-i18n="bookDescription">عن المنتج</h3>
+                    <p id="detail-desc" class="detail-desc"></p>
+                </div>
+
+                <!-- Collapsible info sections -->
+                <details id="detail-ingredients-box" class="info-accordion hidden">
+                    <summary data-i18n="ingredientsLabel">المكونات</summary>
+                    <p id="detail-ingredients"></p>
+                </details>
+                <details id="detail-usage-box" class="info-accordion hidden">
+                    <summary data-i18n="usageLabel">طريقة الاستعمال</summary>
+                    <p id="detail-usage"></p>
+                </details>
+                <details id="detail-warnings-box" class="info-accordion hidden">
+                    <summary data-i18n="warningsLabel">تنبيهات</summary>
+                    <p id="detail-warnings"></p>
+                </details>
+
+                <p id="detail-disclaimer" class="product-disclaimer hidden" data-i18n="supplementDisclaimer">هذا المنتج مكمل غذائي ولا يغني عن استشارة الطبيب.</p>
+
+                <div class="details-actions">
+                    <a id="detail-order-btn" href="#" class="btn btn-primary btn-lg order-now-btn" data-i18n="orderNow">
+                        اطلب الآن
+                    </a>
+                    <a id="detail-whatsapp-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-lg whatsapp-btn hidden">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.52 3.48A11.93 11.93 0 0 0 12.06 0C5.46 0 .09 5.37.09 11.97c0 2.11.55 4.17 1.6 5.99L0 24l6.19-1.62a11.93 11.93 0 0 0 5.87 1.53h.01c6.6 0 11.97-5.37 11.97-11.97 0-3.2-1.25-6.21-3.52-8.46zM12.06 21.92h-.01a9.92 9.92 0 0 1-5.06-1.39l-.36-.21-3.76.99 1-3.66-.23-.38a9.92 9.92 0 0 1-1.52-5.3c0-5.48 4.46-9.94 9.95-9.94 2.65 0 5.15 1.03 7.02 2.91a9.88 9.88 0 0 1 2.91 7.03c0 5.48-4.46 9.95-9.94 9.95z"></path></svg>
+                        <span data-i18n="orderWhatsapp">اطلب عبر واتساب</span>
+                    </a>
+                    <button id="detail-wishlist-btn" class="btn btn-secondary btn-lg detail-wish-btn" type="button">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                        <span data-i18n="addToWishlist">إضافة للمفضلة</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sticky Bottom Bar on Mobile -->
+        <div id="mobile-sticky-action" class="mobile-sticky-bar hidden">
+            <div class="sticky-price-box">
+                <span id="sticky-price" class="sticky-price"></span>
+            </div>
+            <div class="sticky-actions">
+                <a id="sticky-whatsapp-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm whatsapp-btn hidden" aria-label="WhatsApp">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.52 3.48A11.93 11.93 0 0 0 12.06 0C5.46 0 .09 5.37.09 11.97c0 2.11.55 4.17 1.6 5.99L0 24l6.19-1.62a11.93 11.93 0 0 0 5.87 1.53h.01c6.6 0 11.97-5.37 11.97-11.97 0-3.2-1.25-6.21-3.52-8.46zM12.06 21.92h-.01a9.92 9.92 0 0 1-5.06-1.39l-.36-.21-3.76.99 1-3.66-.23-.38a9.92 9.92 0 0 1-1.52-5.3c0-5.48 4.46-9.94 9.95-9.94 2.65 0 5.15 1.03 7.02 2.91a9.88 9.88 0 0 1 2.91 7.03c0 5.48-4.46 9.95-9.94 9.95z"></path></svg>
+                </a>
+                <a id="sticky-order-btn" href="#" class="btn btn-primary btn-sm" data-i18n="orderNow">
+                    اطلب الآن
+                </a>
+            </div>
+        </div>
+
+        <!-- Ratings & Reviews Section -->
+        <section id="reviews-section" class="reviews-section">
+            <h2 class="section-title" data-i18n="reviewsTitle">المراجعات والتقييمات</h2>
+
+            <div class="reviews-summary-card">
+                <div class="rating-big-box">
+                    <div id="avg-rating-val" class="rating-big">0.0</div>
+                    <div id="avg-stars-display" class="rating-stars-lg">☆☆☆☆☆</div>
+                    <div id="total-reviews-text" class="total-reviews-text">0 تقييمات</div>
+                </div>
+
+                <!-- Add Review Form -->
+                <div class="add-review-card">
+                    <h3 data-i18n="addReviewHeading">أضف تقييمك وملاحظتك حول المنتج</h3>
+                    <form id="review-form">
+                        <div class="form-group">
+                            <label data-i18n="ratingLabel">تقييمك بالنجوم</label>
+                            <div class="star-rating-input">
+                                <input type="radio" id="star5" name="rating" value="5" required/><label for="star5" title="5 نجوم">★</label>
+                                <input type="radio" id="star4" name="rating" value="4" /><label for="star4" title="4 نجوم">★</label>
+                                <input type="radio" id="star3" name="rating" value="3" /><label for="star3" title="3 نجوم">★</label>
+                                <input type="radio" id="star2" name="rating" value="2" /><label for="star2" title="2 نجوم">★</label>
+                                <input type="radio" id="star1" name="rating" value="1" /><label for="star1" title="1 نجمة">★</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reviewer-name" data-i18n="reviewerNameLabel">اسمك الكامل (اختياري)</label>
+                            <input type="text" id="reviewer-name" placeholder="مثال: زبون راضٍ">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="review-comment" data-i18n="reviewCommentLabel">تعليقك أو انطباعك عن المنتج</label>
+                            <textarea id="review-comment" rows="3" placeholder="أكتب رأيك بكل صدق حول المنتج..." required></textarea>
+                        </div>
+
+                        <button type="submit" id="submit-review-btn" class="btn btn-primary" data-i18n="submitReview">نشر التقييم</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Reviews List -->
+            <div id="reviews-list" class="reviews-list"></div>
+        </section>
+
+        <!-- Similar Products -->
+        <section id="similar-books-section" class="similar-section hidden">
+            <h2 class="section-title" data-i18n="similarBooks">منتجات مشابهة</h2>
+            <div id="similar-books-grid" class="books-grid"></div>
+        </section>
+
+    </main>
+
+    <footer class="main-footer">
+        <div class="container footer-container">
+            <span data-store-name class="footer-brand">MR beauty</span>
+            <div class="social-links" id="footer-socials"></div>
+            <span class="footer-copy" data-i18n="copyright">© جميع الحقوق محفوظة</span>
+            <p class="footer-disclaimer" data-i18n="footerDisclaimer">المكملات الغذائية لا تغني عن استشارة الطبيب.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - MR beauty</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Anti-flash inline theme and language loader -->
+    <script>
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('mrbeauty_theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                var savedLang = localStorage.getItem('storeLang') || 'ar';
+                document.documentElement.setAttribute('lang', savedLang);
+                document.documentElement.setAttribute('dir', savedLang === 'ar' ? 'rtl' : 'ltr');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js"
+            }
+        }
+    </script>
+
+    <script src="config.js"></script>
+    <script type="module" src="app.js?v=3"></script>
+    <link rel="stylesheet" href="style.css?v=3">
+</head>
+
+<body class="admin-dashboard-body">
+
+    <header class="admin-header">
+        <div class="container header-container">
+            <div class="brand nav-brand">
+                <img src="assets/logo-icon.png" alt="MR beauty" class="store-logo" data-store-logo width="40"
+                    height="40">
+                <span class="store-name" data-store-name>MR beauty</span>
+                <span class="admin-badge" data-i18n="adminDashboard">لوحة التحكم</span>
+            </div>
+
+            <div class="header-actions">
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Theme"
+                    title="تغيير المظهر">
+                    <svg class="theme-icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                        stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+
+                <!-- Mobile Hamburger Button -->
+                <button id="menu-toggle-btn" class="menu-toggle-btn" type="button" aria-label="Menu"
+                    aria-expanded="false" title="القائمة">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                        stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+
+                <!-- Navigation Panel -->
+                <nav id="main-nav" class="nav-drawer" aria-label="Admin Navigation">
+                    <div class="drawer-header">
+                        <span class="drawer-brand" data-store-name>MR beauty</span>
+                        <button id="drawer-close-btn" class="drawer-close-btn" type="button" aria-label="Close menu">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                                stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="nav-menu">
+                        <a href="index.html" class="nav-item-link" data-i18n="backToHome">المتجر</a>
+                        <a href="about.html" class="nav-item-link" data-i18n="aboutUs">من نحن</a>
+                        <a href="admin-dashboard.html" class="nav-item-link active" data-i18n="adminDashboard">لوحة
+                            التحكم</a>
+                    </div>
+
+                    <div class="nav-controls">
+                        <button id="language-switcher" class="btn btn-secondary language-btn" type="button">
+                            <span data-i18n="currentLang">العربية</span>
+                        </button>
+                        <button id="logout-btn" class="btn btn-danger logout-btn" type="button">
+                            <span data-i18n="logout">تسجيل الخروج</span>
+                        </button>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <div id="nav-backdrop" class="nav-backdrop"></div>
+
+    <main class="container admin-main">
+
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-target="tab-books">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                    </path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <span data-i18n="tabBooks">المنتجات</span>
+            </button>
+            <button class="tab-btn" data-target="tab-orders">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <span data-i18n="tabOrders">الطلبات</span>
+            </button>
+            <button class="tab-btn" data-target="tab-stats">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span data-i18n="tabStats">الإحصائيات</span>
+            </button>
+        </div>
+
+        <section id="tab-books" class="tab-content active">
+            <div class="section-actions" style="margin-bottom: 20px;">
+                <button id="add-book-btn" class="btn btn-primary"
+                    style="display: inline-flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span data-i18n="addNewBook">إضافة منتج جديد</span>
+                </button>
+            </div>
+
+            <div id="admin-books-loading" class="loading-container">
+                <div class="spinner"></div>
+            </div>
+
+            <div id="admin-books-grid" class="books-grid hidden"></div>
+        </section>
+
+        <section id="tab-orders" class="tab-content hidden">
+            <div class="orders-tab-header">
+                <div class="order-filters">
+                    <button class="filter-btn active" data-filter="all" data-i18n="filterAll">الكل</button>
+                    <button class="filter-btn" data-filter="pending" data-i18n="filterPending">قيد الانتظار</button>
+                    <button class="filter-btn" data-filter="completed" data-i18n="filterCompleted">مكتمل</button>
+                    <button class="filter-btn" data-filter="cancelled" data-i18n="filterCancelled">ملغى</button>
+                </div>
+                <button id="clear-orders-btn" class="btn btn-clear-orders" data-i18n="clearAllOrders">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6l-1 14H6L5 6"></path>
+                        <path d="M10 11v6"></path>
+                        <path d="M14 11v6"></path>
+                        <path d="M9 6V4h6v2"></path>
+                    </svg>
+                    <span>مسح جميع الطلبات</span>
+                </button>
+            </div>
+
+            <div id="admin-orders-loading" class="loading-container">
+                <div class="spinner"></div>
+            </div>
+
+            <!-- Selection Action Bar -->
+            <div id="selection-action-bar" class="selection-action-bar hidden">
+                <span id="selected-count-label" class="selected-count-label"></span>
+                <div style="display: flex; gap: 8px;">
+                    <button id="delete-selected-btn" class="btn btn-danger btn-sm">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6l-1 14H6L5 6"></path>
+                            <path d="M10 11v6"></path>
+                            <path d="M14 11v6"></path>
+                            <path d="M9 6V4h6v2"></path>
+                        </svg>
+                        <span data-i18n="deleteSelected">حذف المختار</span>
+                    </button>
+                    <button id="deselect-all-btn" class="btn btn-secondary btn-sm">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        <span data-i18n="deselectAll">إلغاء التحديد</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table id="orders-table" class="admin-table hidden">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-col">
+                                <label class="custom-checkbox">
+                                    <input type="checkbox" id="select-all-orders">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </th>
+                            <th data-i18n="orderDate">التاريخ</th>
+                            <th data-i18n="orderCustomer">اسم الزبون</th>
+                            <th data-i18n="orderPhone">رقم الهاتف</th>
+                            <th data-i18n="orderAddress">العنوان</th>
+                            <th data-i18n="orderBook">المنتج</th>
+                            <th data-i18n="orderQty">الكمية</th>
+                            <th data-i18n="orderStatus">الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body"></tbody>
+                </table>
+            </div>
+
+            <div id="no-orders-msg" class="empty-state hidden">
+                <p data-i18n="noOrdersFound">لا توجد طلبات تطابق هذا الفلتر.</p>
+            </div>
+
+        </section>
+
+        <section id="tab-stats" class="tab-content hidden">
+            <div id="admin-stats-loading" class="loading-container">
+                <div class="spinner"></div>
+            </div>
+
+            <div id="stats-grid" class="stats-grid hidden">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                            stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                            </path>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                        </svg>
+                    </div>
+                    <h3 data-i18n="statTotalBooks">إجمالي المنتجات</h3>
+                    <p id="stat-books-count" class="stat-value">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                            stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="21" r="1"></circle>
+                            <circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                        </svg>
+                    </div>
+                    <h3 data-i18n="statTotalOrders">إجمالي الطلبات</h3>
+                    <p id="stat-orders-count" class="stat-value">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                            stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <h3 data-i18n="statPendingOrders">طلبات قيد الانتظار</h3>
+                    <p id="stat-pending-count" class="stat-value stat-warning">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                            stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <h3 data-i18n="statCompletedOrders">طلبات مكتملة</h3>
+                    <p id="stat-completed-count" class="stat-value stat-success">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                            stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <h3 data-i18n="statRevenue">إجمالي الأرباح</h3>
+                    <p id="stat-revenue" class="stat-value">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                            stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon
+                                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                            </polygon>
+                        </svg>
+                    </div>
+                    <h3 data-i18n="statBestSeller">المنتج الأكثر مبيعاً</h3>
+                    <p id="stat-best-seller" class="stat-value text-small">-</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="book-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="modal-title" data-i18n="addNewBook" style="margin-bottom: 16px;">إضافة منتج جديد</h2>
+            <form id="book-form">
+                <input type="hidden" id="book-id-input">
+                <input type="hidden" id="book-cover-url">
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="book-title" data-i18n="bookTitleLabel">اسم المنتج</label>
+                    <input type="text" id="book-title" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="book-author" data-i18n="bookAuthorLabel">الماركة</label>
+                    <input type="text" id="book-author" required>
+                </div>
+
+                <div class="form-row" style="margin-bottom: 12px;">
+                    <div class="form-group">
+                        <label for="book-category" data-i18n="bookCategoryLabel">التصنيف / الفئة</label>
+                        <select id="book-category" required>
+                            <option value="weight-gain">زيادة الوزن (Weight Gain)</option>
+                            <option value="muscle">بناء العضلات (Muscle Building)</option>
+                            <option value="vitamins">فيتامينات (Vitamins)</option>
+                            <option value="body-care">العناية بالجسم (Body Care)</option>
+                            <option value="other">أخرى (Other)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="book-stock" data-i18n="bookStockLabel">الكمية بالمخزون (Stock)</label>
+                        <input type="number" id="book-stock" min="0" value="10" required>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-bottom: 12px;">
+                    <div class="form-group">
+                        <label for="book-price" data-i18n="bookPriceLabel">السعر الأصلي</label>
+                        <input type="number" id="book-price" step="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="book-discount-price" data-i18n="bookDiscountLabel">سعر الخصم (اختياري)</label>
+                        <input type="number" id="book-discount-price" step="0.01" placeholder="مثال: 1200">
+                    </div>
+                </div>
+
+                <div class="form-group checkbox-group" style="margin-bottom: 14px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="book-featured">
+                        <span data-i18n="bookFeaturedLabel">عرض في قسم "المختارات والأكثر طلباً"</span>
+                    </label>
+                </div>
+
+                <!-- Image Upload Section -->
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label data-i18n="bookCoverLabel">صورة المنتج</label>
+
+                    <div id="cover-drop-zone" class="cover-drop-zone"
+                        style="border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 20px; text-align: center; cursor: pointer; background: var(--surface-2);">
+                        <img id="cover-preview" src="" alt="Preview" class="cover-preview hidden"
+                            style="max-height: 140px; margin: 0 auto 10px; border-radius: var(--radius-sm); object-fit: contain;">
+                        <div class="drop-zone-placeholder">
+                            <svg class="drop-icon" viewBox="0 0 24 24" width="32" height="32" fill="none"
+                                stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+                                style="margin: 0 auto 8px; color: var(--text-muted);">
+                                <path
+                                    d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                                </path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                            <span class="drop-text" data-i18n="uploadClick"
+                                style="display: block; font-size: 0.9rem; color: var(--text-muted);">اضغط لاختيار صورة
+                                أو اسحبها هنا</span>
+                        </div>
+                        <input type="file" id="book-cover-file" accept="image/*" class="hidden">
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div id="upload-progress-wrap" class="upload-progress-wrap hidden" style="margin-top: 8px;">
+                        <div class="upload-progress-track"
+                            style="height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden;">
+                            <div id="upload-progress-bar" class="upload-progress-bar"
+                                style="width:0%; height: 100%; background: var(--accent); transition: width 0.2s;">
+                            </div>
+                        </div>
+                        <span id="upload-status-text" class="upload-status-text"
+                            style="font-size: 0.8rem; color: var(--text-muted);"></span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="book-desc" data-i18n="bookDescLabel">وصف المنتج</label>
+                    <textarea id="book-desc" rows="3" required></textarea>
+                </div>
+
+                <div class="modal-actions" style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" data-i18n="saveBtn" style="flex: 1;">حفظ</button>
+                    <button type="button" id="close-modal-btn" class="btn btn-secondary"
+                        data-i18n="cancelBtn">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Clear Orders Confirmation Modal -->
+    <div id="clear-orders-modal" class="modal hidden">
+        <div class="modal-content clear-modal-content" style="text-align: center;">
+            <div class="clear-modal-icon"
+                style="width: 56px; height: 56px; border-radius: 50%; background: rgba(217, 45, 32, 0.1); color: var(--danger); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                    </path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </div>
+            <h2 class="clear-modal-title" data-i18n="clearOrdersConfirmTitle" style="margin-bottom: 8px;">تأكيد مسح
+                الطلبات</h2>
+            <p class="clear-modal-msg" data-i18n="clearOrdersConfirmMsg"
+                style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">هل أنت متأكد أنك تريد حذف
+                جميع الطلبات نهائياً؟ لا يمكن التراجع عن هذا الإجراء.</p>
+            <div class="modal-actions" style="display: flex; gap: 10px; justify-content: center;">
+                <button id="confirm-clear-orders-btn" class="btn btn-danger" data-i18n="clearOrdersConfirmBtn">نعم، امسح
+                    الكل</button>
+                <button id="cancel-clear-orders-btn" class="btn btn-secondary"
+                    data-i18n="clearOrdersCancel">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
